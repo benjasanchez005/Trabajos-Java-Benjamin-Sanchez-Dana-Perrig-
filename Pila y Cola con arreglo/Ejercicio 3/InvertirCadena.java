@@ -41,7 +41,7 @@ class PilaArreglo {
 // Clase principal para invertir una cadena
 public class InvertirCadena {
     public static String invertir(String cadena) {
-        PilaArreglo pila = new PilaArreglo(cadena.length());
+        PilaArreglo pila = new PilaArreglo(cadena.length()); //una pila del tamano de la cadena
 
         // Apilar cada carácter
         for (int i = 0; i < cadena.length(); i++) {

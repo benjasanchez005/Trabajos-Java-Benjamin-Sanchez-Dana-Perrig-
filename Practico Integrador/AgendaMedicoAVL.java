@@ -17,6 +17,16 @@ import java.util.Optional;
  */
 public class AgendaMedicoAVL implements AgendaConHistorial {
     private NodoAVL raiz;
+    private String matricula;
+    
+    public AgendaMedicoAVL(String matricula) {
+        this.matricula = matricula;
+    }
+
+    // Método getter (AÑADIR)
+    public String getMatricula() {
+        return this.matricula;
+    }
 
     // Horario laboral (ajustable)
     private final LocalTime inicioJornada = LocalTime.of(8, 0);

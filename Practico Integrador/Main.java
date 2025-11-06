@@ -37,7 +37,7 @@ public class Main {
     private static final MapaPacientes mapaPacientes = new MapaPacientesHash(50); // Capacidad inicial
 
     // (Punto 2, 3, 9) Agendas AVL por Médico
-    private static final Map<String, AgendaConHistorial> agendasMedicos = new HashMap<>();
+    private static final List<AgendaConHistorial> agendasMedicos = new ArrayList<>();
 
     // (Punto 4) Sala de Espera
     private static final SalaEspera salaEspera = new SalaEspera(5); // Capacidad de 5 (según PDF)
@@ -124,54 +124,66 @@ public class Main {
      * Llama a SistemaClinica para parsear los CSV
      * y luego puebla las estructuras de datos avanzadas (Hash, AVL).
      */
-    private static void cargarDatosIniciales() throws IOException {
-        System.out.println("Cargando datos iniciales...");
+   private static void cargarDatosIniciales() throws IOException {
+    System.out.println("Cargando datos iniciales...");
+    
+    //Cargar datos
+    sistema.cargarPacientes("pacientes.csv");
+    System.out.printf("... Pacientes cargados: %d\n", sistema.getCantPacientes());
+
+    sistema.cargarMedicos("medicos.csv");
+    System.out.printf("... Médicos cargados: %d\n", sistema.getCantMedicos());
+
+    sistema.cargarTurnos("turnos.csv");
+    System.out.printf("... Turnos válidos cargados: %d\n", sistema.getCantTurnos());
+
+    //Post-procesamiento: Llenar estructuras
+    
+    // (Punto 6) Llenar el MapaPacientesHash
+    for (int i = 0; i < sistema.getCantPacientes(); i++) {
+        Paciente p = sistema.getPacientes()[i];
+        mapaPacientes.put(p.dni, p);
+    }
+    System.out.printf("... Índice de pacientes (Hash) creado. Tamaño: %d\n", mapaPacientes.size());
+
+    
+    //Crear las agendas AVL para cada médico
+    for (int i = 0; i < sistema.getCantMedicos(); i++) {
+        Medico m = sistema.getMedicos()[i];
+        agendasMedicos.add(new AgendaMedicoAVL(m.matricula)); 
+    }
+
+    
+    //Distribuir los turnos cargados en sus respectivas agendas
+    int turnosAgendados = 0;
+    for (int i = 0; i < sistema.getCantTurnos(); i++) {
+        Turno t = sistema.getTurnos()[i];
         
-        //Cargar datos
-        sistema.cargarPacientes("pacientes.csv");
-        System.out.printf("... Pacientes cargados: %d\n", sistema.getCantPacientes());
-
-        sistema.cargarMedicos("medicos.csv");
-        System.out.printf("... Médicos cargados: %d\n", sistema.getCantMedicos());
-
-        sistema.cargarTurnos("turnos.csv");
-        System.out.printf("... Turnos válidos cargados: %d\n", sistema.getCantTurnos());
-
-        //Post-procesamiento: Llenar estructuras
-        
-        // (Punto 6) Llenar el MapaPacientesHash
-        for (int i = 0; i < sistema.getCantPacientes(); i++) {
-            Paciente p = sistema.getPacientes()[i];
-            mapaPacientes.put(p.dni, p);
-        }
-        System.out.printf("... Índice de pacientes (Hash) creado. Tamaño: %d\n", mapaPacientes.size());
-
-        // (Punto 2) Crear las agendas AVL para cada médico
-        for (int i = 0; i < sistema.getCantMedicos(); i++) {
-            Medico m = sistema.getMedicos()[i];
-            agendasMedicos.put(m.matricula, new AgendaMedicoAVL());
-        }
-
-        // (Punto 2) Distribuir los turnos cargados en sus respectivas agendas
-        int turnosAgendados = 0;
-        for (int i = 0; i < sistema.getCantTurnos(); i++) {
-            Turno t = sistema.getTurnos()[i];
-            AgendaConHistorial agenda = agendasMedicos.get(t.matriculaMedico);
-            if (agenda != null) {
-                if (agenda.agendar(t)) { // Usa el método agendar del AVL
-                    turnosAgendados++;
-                }
+        //Buscar la agenda en la lista
+        AgendaConHistorial agenda = null;
+        for (AgendaConHistorial agendaTemp : agendasMedicos) {
+            if (((AgendaMedicoAVL) agendaTemp).getMatricula().equals(t.matriculaMedico)) {
+                agenda = agendaTemp;
+                break;
             }
         }
-        System.out.printf("... %d turnos distribuidos en las agendas AVL.\n", turnosAgendados);
-        
-        // (Punto 9) Limpiar el historial de la carga inicial
-        for (AgendaConHistorial agenda : agendasMedicos.values()) {
-            ((AgendaMedicoAVL) agenda).limpiarHistorial(); // Asumiendo que se agregó el método
+
+        if (agenda != null) {
+            if (agenda.agendar(t)) { // Usa el método agendar del AVL
+                turnosAgendados++;
+            }
         }
-        System.out.println("... Historial de Undo/Redo limpiado post-carga.");
-        System.out.println("--- Carga inicial completa ---");
     }
+    System.out.printf("... %d turnos distribuidos en las agendas AVL.\n", turnosAgendados);
+    
+    
+    //Limpiar el historial de la carga inicial
+    for (AgendaConHistorial agenda : agendasMedicos) {
+        ((AgendaMedicoAVL) agenda).limpiarHistorial();
+    }
+    System.out.println("... Historial de Undo/Redo limpiado post-carga.");
+    System.out.println("--- Carga inicial completa ---");
+}
 
     /*
     (Opción 4 - Pto 2)
@@ -530,18 +542,17 @@ public class Main {
         }
     }
 
-    /**
-     * Método helper reutilizable para pedir una matrícula y obtener la Agenda.
-     */
-    private static AgendaConHistorial getAgendaMedicoPorInput() {
-        System.out.print("Ingrese matrícula del médico (ej: M001): ");
-        String matricula = sc.nextLine();
-        
-        AgendaConHistorial agenda = agendasMedicos.get(matricula);
-        if (agenda == null) {
-            System.out.println("Error: Médico no encontrado con matrícula " + matricula);
-            return null;
+// Método para pedir una matrícula y obtener la Agenda.
+private static AgendaConHistorial getAgendaMedicoPorInput() {
+    System.out.print("Ingrese matrícula del médico (ej: M001): ");
+    String matricula = sc.nextLine();
+
+    for (AgendaConHistorial agenda : agendasMedicos) {
+        if (((AgendaMedicoAVL) agenda).getMatricula().equals(matricula)) {
+            return agenda;
         }
-        return agenda;
     }
+    System.out.println("Error: Médico no encontrado con matrícula " + matricula);
+    return null;
+}
 }
